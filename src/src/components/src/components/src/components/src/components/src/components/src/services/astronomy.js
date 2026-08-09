@@ -1,19 +1,5 @@
 import * as Astronomy from "astronomy-engine";
-
-/*
-  Cosmo Vision Astronomy Engine
-
-  Handles:
-  - Sun
-  - Moon
-  - Mercury
-  - Venus
-  - Mars
-  - Jupiter
-  - Saturn
-  - Uranus
-  - Neptune
-*/
+import { skyObjects } from "../data/skyObjects";
 
 const PLANETS = [
   "Mercury",
@@ -38,9 +24,9 @@ export function getSkyObjects(
 
   const objects = [];
 
-  // Sun
+  // Solar-system objects
   objects.push(
-    calculateObject(
+    calculateBody(
       "Sun",
       Astronomy.Body.Sun,
       observer,
@@ -49,9 +35,8 @@ export function getSkyObjects(
     )
   );
 
-  // Moon
   objects.push(
-    calculateObject(
+    calculateBody(
       "Moon",
       Astronomy.Body.Moon,
       observer,
@@ -60,10 +45,9 @@ export function getSkyObjects(
     )
   );
 
-  // Planets
   for (const planet of PLANETS) {
     objects.push(
-      calculateObject(
+      calculateBody(
         planet,
         Astronomy.Body[planet],
         observer,
@@ -73,10 +57,23 @@ export function getSkyObjects(
     );
   }
 
+  // Catalogue objects
+  for (const object of skyObjects) {
+    const position = calculateCatalogueObject(
+      object,
+      observer,
+      date
+    );
+
+    if (position) {
+      objects.push(position);
+    }
+  }
+
   return objects;
 }
 
-function calculateObject(
+function calculateBody(
   name,
   body,
   observer,
@@ -99,8 +96,6 @@ function calculateObject(
     "normal"
   );
 
-  const altitude = horizontal.altitude;
-
   return {
     id: `${type}-${name.toLowerCase()}`,
     name,
@@ -110,13 +105,58 @@ function calculateObject(
       horizontal.azimuth
     ),
 
-    altitude,
+    altitude: horizontal.altitude,
 
-    rightAscension: equator.ra,
+    ra: equator.ra,
+    dec: equator.dec,
 
-    declination: equator.dec,
+    magnitude: null,
 
-    visible: altitude > 0
+    visible:
+      horizontal.altitude > 0
+  };
+}
+
+function calculateCatalogueObject(
+  object,
+  observer,
+  date
+) {
+  if (
+    typeof object.ra !== "number" ||
+    typeof object.dec !== "number"
+  ) {
+    return null;
+  }
+
+  /*
+    Catalogue RA is stored in degrees.
+
+    Astronomy.Engine expects right ascension
+    in hours for this calculation.
+  */
+
+  const raHours = object.ra / 15;
+
+  const horizontal = Astronomy.Horizon(
+    date,
+    observer,
+    raHours,
+    object.dec,
+    "normal"
+  );
+
+  return {
+    ...object,
+
+    azimuth: normalizeAngle(
+      horizontal.azimuth
+    ),
+
+    altitude: horizontal.altitude,
+
+    visible:
+      horizontal.altitude > 0
   };
 }
 
@@ -124,4 +164,4 @@ function normalizeAngle(angle) {
   return (
     ((angle % 360) + 360) % 360
   );
-    }
+}
